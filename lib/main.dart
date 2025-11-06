@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'database.dart';
 
 void main() {
   runApp(const BarMenuApp());
@@ -40,13 +41,48 @@ class _BarHomePageState extends State<BarHomePage> {
     (prev, item) => prev + item['price'] * item['quantity'],
   );
 
+  List<Map<String, dynamic>> stock = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStock();
+  }
+
+  Future<void> loadStock() async {
+    stock = await StockDatabase.instance.fetchStock();
+    if (!mounted) return;
+    setState(() => loading = false);
+  }
+
+  int getStock(String name) {
+    final item = stock.firstWhere(
+      (s) => s["name"] == name,
+      orElse: () => {"quantity": 0},
+    );
+    return item["quantity"];
+  }
+
   void toggleTile(int index) {
     setState(() {
       openTileIndex = (openTileIndex == index) ? -1 : index;
     });
   }
 
-  void addToCart(String name, double price) {
+  void addToCart(String name, double price) async {
+    bool success = await StockDatabase.instance.reduceStock(name);
+
+    if (!success) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("$name is out of stock")));
+      return;
+    }
+
+    await loadStock(); // refresh UI
+
     setState(() {
       if (cart.containsKey(name)) {
         cart[name]!['quantity'] += 1;
@@ -130,7 +166,7 @@ class _BarHomePageState extends State<BarHomePage> {
                   onPressed: clearCart,
                   child: const Text(
                     "Clear",
-                    style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -146,13 +182,14 @@ class _BarHomePageState extends State<BarHomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => CheckoutPage(cart: cart),
+                        builder: (context) =>
+                            CheckoutPage(cart: Map.from(cart)),
                       ),
                     );
                   },
                   child: const Text(
                     "Checkout",
-                    style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
               ],
@@ -167,7 +204,6 @@ class _BarHomePageState extends State<BarHomePage> {
     bool isOpen = openTileIndex == index;
 
     return Card(
-      key: ValueKey(index),
       margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -190,14 +226,21 @@ class _BarHomePageState extends State<BarHomePage> {
   }
 
   Widget item(String name, double price) {
+    int remaining = getStock(name);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade700,
+        color: remaining > 0
+            ? const Color.fromARGB(255, 99, 99, 99)
+            : Colors.grey.shade700,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
-        title: Text(name, style: const TextStyle(color: Colors.white)),
+        title: Text(
+          "$name (Stock: $remaining)",
+          style: const TextStyle(color: Colors.white),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -210,18 +253,11 @@ class _BarHomePageState extends State<BarHomePage> {
             ),
             const SizedBox(width: 8),
             ElevatedButton(
+              onPressed: remaining > 0 ? () => addToCart(name, price) : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
               ),
-              onPressed: () => addToCart(name, price),
-              child: const Text(
-                "Add",
-                style: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
-              ),
+              child: const Text("Add", style: TextStyle(color: Colors.black)),
             ),
           ],
         ),
@@ -232,6 +268,7 @@ class _BarHomePageState extends State<BarHomePage> {
 
 class CheckoutPage extends StatelessWidget {
   final Map<String, Map<String, dynamic>> cart;
+
   const CheckoutPage({super.key, required this.cart});
 
   @override
@@ -270,7 +307,7 @@ class CheckoutPage extends StatelessWidget {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade700,
+                          color: const Color.fromARGB(255, 255, 255, 255),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -279,7 +316,7 @@ class CheckoutPage extends StatelessWidget {
                             Text(
                               "${e.key} x${e.value['quantity']}",
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: Color.fromARGB(255, 0, 0, 0),
                                 fontSize: 18,
                               ),
                             ),
@@ -322,14 +359,14 @@ class CheckoutPage extends StatelessWidget {
                   },
                   child: const Text(
                     "Confirm Order",
-                    style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   onPressed: () {
-                    cart.clear(); // Clear the cart
-                    Navigator.pop(context); // Go back to main page
+                    cart.clear();
+                    Navigator.pop(context);
                   },
                   child: const Text(
                     "Cancel Order",
