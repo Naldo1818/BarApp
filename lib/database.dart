@@ -165,4 +165,18 @@ class StockDatabase {
 
     return true;
   }
+
+  Future<void> increaseStock(String name, int amount) async {
+    final db = await instance.database;
+
+    final item = await findItem(name);
+    if (item == null) return;
+
+    await db.update(
+      "stock",
+      {"quantity": item["quantity"] + amount},
+      where: "name = ?",
+      whereArgs: [name],
+    );
+  }
 }

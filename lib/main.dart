@@ -81,7 +81,7 @@ class _BarHomePageState extends State<BarHomePage> {
       return;
     }
 
-    await loadStock(); // refresh UI
+    await loadStock();
 
     setState(() {
       if (cart.containsKey(name)) {
@@ -92,7 +92,17 @@ class _BarHomePageState extends State<BarHomePage> {
     });
   }
 
-  void clearCart() {
+  void clearCart() async {
+    // Restore stock quantities
+    for (var entry in cart.entries) {
+      await StockDatabase.instance.increaseStock(
+        entry.key,
+        entry.value["quantity"],
+      );
+    }
+
+    await loadStock(); // ✅ Refresh UI
+
     setState(() {
       cart.clear();
     });
@@ -178,14 +188,24 @@ class _BarHomePageState extends State<BarHomePage> {
                       vertical: 12,
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
                             CheckoutPage(cart: Map.from(cart)),
                       ),
                     );
+
+                    if (result == true) {
+                      setState(() {
+                        cart.clear();
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Order Confirmed!")),
+                      );
+                    }
                   },
                   child: const Text(
                     "Checkout",
@@ -307,7 +327,7 @@ class CheckoutPage extends StatelessWidget {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -316,14 +336,14 @@ class CheckoutPage extends StatelessWidget {
                             Text(
                               "${e.key} x${e.value['quantity']}",
                               style: const TextStyle(
-                                color: Color.fromARGB(255, 0, 0, 0),
+                                color: Colors.black,
                                 fontSize: 18,
                               ),
                             ),
                             Text(
                               "R${(e.value['price'] * e.value['quantity']).toStringAsFixed(2)}",
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: Colors.black,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -353,9 +373,7 @@ class CheckoutPage extends StatelessWidget {
                     backgroundColor: const Color.fromARGB(255, 15, 133, 0),
                   ),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Order Confirmed!")),
-                    );
+                    Navigator.pop(context, true);
                   },
                   child: const Text(
                     "Confirm Order",
@@ -365,8 +383,7 @@ class CheckoutPage extends StatelessWidget {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   onPressed: () {
-                    cart.clear();
-                    Navigator.pop(context);
+                    Navigator.pop(context, false);
                   },
                   child: const Text(
                     "Cancel Order",
