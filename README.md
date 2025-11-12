@@ -31,8 +31,5 @@ This project uses **Flutter**, **Sqflite**, and **Material 3** design principles
 - Smooth category expansion animations.
 - Real-time stock updates without app restart.
 
----
-
-## 🧱 Project Structure
 
 
