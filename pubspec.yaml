@@ -11,16 +11,15 @@ dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
-
-  # ✅ Added for local database (SQLite)
-  sqflite: ^2.3.0
-  path: ^1.9.0
+  logging: ^1.2.0       # ✅ top-level dependency
+  sqflite: ^2.3.0       # ✅ top-level dependency
+  path: ^1.9.0          # ✅ top-level dependency
+  intl: ^0.18.1         # ✅ top-level dependency
+  cupertino_icons: ^1.0.8  # ✅ top-level dependency
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
 
 flutter:

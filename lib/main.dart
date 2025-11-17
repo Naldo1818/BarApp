@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'database.dart';
+import 'sales_history.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // await StockDatabase.instance.deleteDB(); // Uncomment to delete old database if needed
   runApp(const BarMenuApp());
 }
 
@@ -44,6 +47,9 @@ class _BarHomePageState extends State<BarHomePage> {
   List<Map<String, dynamic>> stock = [];
   bool loading = true;
 
+  // LOW STOCK THRESHOLD
+  static const int lowStockThreshold = 10;
+
   @override
   void initState() {
     super.initState();
@@ -61,12 +67,16 @@ class _BarHomePageState extends State<BarHomePage> {
       (s) => s["name"] == name,
       orElse: () => {"quantity": 0},
     );
-    return item["quantity"];
+    return item["quantity"] as int;
   }
 
+  // FIX: Delay setState to avoid calling during build
   void toggleTile(int index) {
-    setState(() {
-      openTileIndex = (openTileIndex == index) ? -1 : index;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        openTileIndex = (openTileIndex == index) ? -1 : index;
+      });
     });
   }
 
@@ -90,6 +100,13 @@ class _BarHomePageState extends State<BarHomePage> {
         cart[name] = {'price': price, 'quantity': 1};
       }
     });
+
+    final remaining = getStock(name);
+    if (remaining <= 0 && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("$name is now out of stock")));
+    }
   }
 
   void clearCart() async {
@@ -101,7 +118,7 @@ class _BarHomePageState extends State<BarHomePage> {
       );
     }
 
-    await loadStock(); // ✅ Refresh UI
+    await loadStock();
 
     setState(() {
       cart.clear();
@@ -115,43 +132,60 @@ class _BarHomePageState extends State<BarHomePage> {
         title: const Text("Bar"),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: "Sales History",
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SalesHistoryPage(),
+                ),
+              );
+              await loadStock();
+            },
+            icon: const Icon(Icons.history, color: Colors.white),
+          ),
+        ],
       ),
       body: Container(
         color: Colors.grey.shade900,
-        child: ListView(
-          children: [
-            buildTile(0, "Beers", [
-              item("Castle Lager", 29),
-              item("Heineken", 35),
-              item("Corona", 40),
-            ]),
-            buildTile(1, "Ciders", [
-              item("Savanna Dry", 32),
-              item("Hunters Gold", 30),
-              item("Brutal Fruit", 28),
-            ]),
-            buildTile(2, "Vodka", [
-              item("Smirnoff Vodka (Single)", 25),
-              item("Absolut Vodka (Single)", 35),
-              item("Belvedere (Single)", 50),
-            ]),
-            buildTile(3, "Rums", [
-              item("Captain Morgan", 28),
-              item("Bacardi White Rum", 30),
-            ]),
-            buildTile(4, "Whiskies", [
-              item("Jameson (Single)", 35),
-              item("Jack Daniels (Single)", 38),
-              item("Glenfiddich 12 (Single)", 55),
-            ]),
-            buildTile(5, "Soft Drinks", [
-              item("Coke", 15),
-              item("Sprite", 15),
-              item("Tonic Water", 18),
-              item("Ginger Ale", 18),
-            ]),
-          ],
-        ),
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                children: [
+                  buildTile(0, "Beers", [
+                    item("Castle Lager", 29),
+                    item("Heineken", 35),
+                    item("Corona", 40),
+                  ]),
+                  buildTile(1, "Ciders", [
+                    item("Savanna Dry", 32),
+                    item("Hunters Gold", 30),
+                    item("Brutal Fruit", 28),
+                  ]),
+                  buildTile(2, "Vodka", [
+                    item("Smirnoff Vodka (Single)", 25),
+                    item("Absolut Vodka (Single)", 35),
+                    item("Belvedere (Single)", 50),
+                  ]),
+                  buildTile(3, "Rums", [
+                    item("Captain Morgan", 28),
+                    item("Bacardi White Rum", 30),
+                  ]),
+                  buildTile(4, "Whiskies", [
+                    item("Jameson (Single)", 35),
+                    item("Jack Daniels (Single)", 38),
+                    item("Glenfiddich 12 (Single)", 55),
+                  ]),
+                  buildTile(5, "Soft Drinks", [
+                    item("Coke", 15),
+                    item("Sprite", 15),
+                    item("Tonic Water", 18),
+                    item("Ginger Ale", 18),
+                  ]),
+                ],
+              ),
       ),
       bottomNavigationBar: Container(
         color: Colors.black,
@@ -198,6 +232,8 @@ class _BarHomePageState extends State<BarHomePage> {
                     );
 
                     if (result == true) {
+                      await StockDatabase.instance.recordSale(cart);
+
                       setState(() {
                         cart.clear();
                       });
@@ -248,12 +284,17 @@ class _BarHomePageState extends State<BarHomePage> {
   Widget item(String name, double price) {
     int remaining = getStock(name);
 
+    final lowStock = remaining > 0 && remaining <= lowStockThreshold;
+    final outOfStock = remaining <= 0;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
       decoration: BoxDecoration(
-        color: remaining > 0
-            ? const Color.fromARGB(255, 99, 99, 99)
-            : Colors.grey.shade700,
+        color: outOfStock
+            ? Colors.red.shade700
+            : lowStock
+            ? const Color.fromARGB(255, 111, 67, 0)
+            : const Color.fromARGB(255, 99, 99, 99),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
@@ -261,6 +302,20 @@ class _BarHomePageState extends State<BarHomePage> {
           "$name (Stock: $remaining)",
           style: const TextStyle(color: Colors.white),
         ),
+        subtitle: outOfStock
+            ? const Text(
+                "Out of stock",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : lowStock
+            ? const Text(
+                "Low stock",
+                style: TextStyle(color: Colors.yellowAccent),
+              )
+            : null,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -272,8 +327,11 @@ class _BarHomePageState extends State<BarHomePage> {
               ),
             ),
             const SizedBox(width: 8),
+            if (lowStock) const Icon(Icons.warning, color: Colors.yellow),
+            if (outOfStock) const Icon(Icons.warning, color: Colors.red),
+            const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: remaining > 0 ? () => addToCart(name, price) : null,
+              onPressed: outOfStock ? null : () => addToCart(name, price),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 255, 255, 255),
               ),
