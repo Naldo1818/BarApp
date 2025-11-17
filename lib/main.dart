@@ -35,8 +35,6 @@ class BarHomePage extends StatefulWidget {
 
 class _BarHomePageState extends State<BarHomePage> {
   int openTileIndex = -1;
-
-  // Cart: item -> {'price': double, 'quantity': int}
   Map<String, Map<String, dynamic>> cart = {};
 
   double get totalPrice => cart.values.fold(
@@ -47,7 +45,6 @@ class _BarHomePageState extends State<BarHomePage> {
   List<Map<String, dynamic>> stock = [];
   bool loading = true;
 
-  // LOW STOCK THRESHOLD
   static const int lowStockThreshold = 10;
 
   @override
@@ -70,7 +67,6 @@ class _BarHomePageState extends State<BarHomePage> {
     return item["quantity"] as int;
   }
 
-  // FIX: Delay setState to avoid calling during build
   void toggleTile(int index) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -93,6 +89,7 @@ class _BarHomePageState extends State<BarHomePage> {
 
     await loadStock();
 
+    if (!mounted) return;
     setState(() {
       if (cart.containsKey(name)) {
         cart[name]!['quantity'] += 1;
@@ -110,7 +107,6 @@ class _BarHomePageState extends State<BarHomePage> {
   }
 
   void clearCart() async {
-    // Restore stock quantities
     for (var entry in cart.entries) {
       await StockDatabase.instance.increaseStock(
         entry.key,
@@ -120,6 +116,7 @@ class _BarHomePageState extends State<BarHomePage> {
 
     await loadStock();
 
+    if (!mounted) return;
     setState(() {
       cart.clear();
     });
@@ -187,71 +184,76 @@ class _BarHomePageState extends State<BarHomePage> {
                 ],
               ),
       ),
-      bottomNavigationBar: Container(
-        color: Colors.black,
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              "Total: R${totalPrice.toStringAsFixed(2)}",
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
-            Row(
-              children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 168, 0, 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  onPressed: clearCart,
-                  child: const Text(
-                    "Clear",
-                    style: TextStyle(color: Colors.white),
+      bottomNavigationBar: buildBottomBar(),
+    );
+  }
+
+  Widget buildBottomBar() {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Total: R${totalPrice.toStringAsFixed(2)}",
+            style: const TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          Row(
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 168, 0, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
                   ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 15, 133, 0),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                onPressed: clearCart,
+                child: const Text(
+                  "Clear",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 15, 133, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  onPressed: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            CheckoutPage(cart: Map.from(cart)),
-                      ),
+                ),
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CheckoutPage(cart: Map.from(cart)),
+                    ),
+                  );
+
+                  if (!mounted) return;
+                  if (result == true) {
+                    await StockDatabase.instance.recordSale(cart);
+
+                    if (!mounted) return;
+                    setState(() {
+                      cart.clear();
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Order Confirmed!")),
                     );
-
-                    if (result == true) {
-                      await StockDatabase.instance.recordSale(cart);
-
-                      setState(() {
-                        cart.clear();
-                      });
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Order Confirmed!")),
-                      );
-                    }
-                  },
-                  child: const Text(
-                    "Checkout",
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  }
+                },
+                child: const Text(
+                  "Checkout",
+                  style: TextStyle(color: Colors.white),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
