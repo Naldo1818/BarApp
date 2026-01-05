@@ -23,7 +23,7 @@ class StockDatabase {
   }
 
   Future _createDB(Database db, int version) async {
-    // Users
+    // Users table
     await db.execute('''
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +33,7 @@ class StockDatabase {
       );
     ''');
 
-    // Stock with category
+    // Stock table
     await db.execute('''
       CREATE TABLE stock(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +44,7 @@ class StockDatabase {
       );
     ''');
 
-    // Sales history
+    // Sales history table
     await db.execute('''
       CREATE TABLE sales_history(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +55,7 @@ class StockDatabase {
       );
     ''');
 
-    // Default users
+    // Insert default users
     await db.insert("users", {
       "username": "admin",
       "password": "admin123",
@@ -67,7 +67,7 @@ class StockDatabase {
       "role": "bartender",
     });
 
-    // Initial stock items
+    // Initial stock
     final items = [
       {
         "name": "Castle Lager",
@@ -169,10 +169,12 @@ class StockDatabase {
       },
     ];
 
-    for (var item in items) await db.insert("stock", item);
+    for (var item in items) {
+      await db.insert("stock", item);
+    }
   }
 
-  /// LOGIN
+  /// ---------------- LOGIN ----------------
   Future<String?> validateUser(String username, String password) async {
     final db = await instance.database;
     final result = await db.query(
@@ -183,7 +185,7 @@ class StockDatabase {
     return result.isNotEmpty ? result.first["role"] as String : null;
   }
 
-  /// CRUD FOR DRINKS
+  /// ---------------- CRUD DRINKS ----------------
   Future<void> addNewDrink(
     String name,
     double price,
@@ -254,7 +256,7 @@ class StockDatabase {
     );
   }
 
-  /// SALES HISTORY
+  /// ---------------- SALES HISTORY ----------------
   Future<void> recordSale(Map<String, Map<String, dynamic>> cart) async {
     final db = await instance.database;
     final batch = db.batch();
@@ -283,6 +285,48 @@ class StockDatabase {
     await db.delete("sales_history");
   }
 
+  /// ---------------- REPORTS ----------------
+  Future<Map<String, dynamic>> generateSalesReportByDate(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final db = await instance.database;
+
+    final startStr = start.toIso8601String();
+    final endStr = end.toIso8601String();
+
+    // Total revenue
+    final revenueResult = await db.rawQuery(
+      '''
+      SELECT SUM(total_price) as total
+      FROM sales_history
+      WHERE timestamp BETWEEN ? AND ?
+    ''',
+      [startStr, endStr],
+    );
+
+    final totalRevenue =
+        (revenueResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    // Items with category (join with stock table)
+    final items = await db.rawQuery(
+      '''
+      SELECT sh.item,
+             SUM(sh.quantity) as qty,
+             SUM(sh.total_price) as revenue,
+             s.category
+      FROM sales_history sh
+      LEFT JOIN stock s ON sh.item = s.name
+      WHERE sh.timestamp BETWEEN ? AND ?
+      GROUP BY sh.item
+    ''',
+      [startStr, endStr],
+    );
+
+    return {'totalRevenue': totalRevenue, 'items': items};
+  }
+
+  /// ---------------- DELETE DB ----------------
   Future<void> deleteDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, "stock.db");

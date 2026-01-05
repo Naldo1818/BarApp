@@ -5,17 +5,23 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: ">=3.9.2 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  logging: ^1.2.0       # ✅ top-level dependency
-  sqflite: ^2.3.0       # ✅ top-level dependency
-  path: ^1.9.0          # ✅ top-level dependency
-  intl: ^0.18.1         # ✅ top-level dependency
-  cupertino_icons: ^1.0.8  # ✅ top-level dependency
+  # Flutter core packages
+  cupertino_icons: ^1.0.8
+  intl: ^0.19.0
+  logging: ^1.2.0
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
+  # PDF / Printing / Charts
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  fl_chart: ^0.66.2   # Works on Flutter web, use instead of charts_flutter
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,7 @@ import 'manage_drinks.dart';
 import 'restock_drinks.dart';
 import 'sales_history.dart';
 import 'login_page.dart'; // Needed for back navigation
+import 'sales_report_page.dart';
 
 class AdminPage extends StatelessWidget {
   const AdminPage({super.key});
@@ -72,6 +73,20 @@ class AdminPage extends StatelessWidget {
                 );
               },
               child: const Text("📦 Restock Drinks"),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SalesReportPage()),
+                );
+              },
+              child: const Text("📊 Generate Sales Report"),
             ),
           ],
         ),

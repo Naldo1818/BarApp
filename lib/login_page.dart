@@ -18,18 +18,32 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> login() async {
     if (loading) return;
 
-    setState(() => loading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     final username = userCtrl.text.trim();
     final password = passCtrl.text.trim();
 
+    if (username.isEmpty || password.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("Please enter username and password"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => loading = true);
+
     final role = await StockDatabase.instance.validateUser(username, password);
 
     if (!mounted) return;
+
     setState(() => loading = false);
 
     if (role == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text("Invalid username or password"),
           backgroundColor: Colors.red,
@@ -38,17 +52,23 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // ✅ Navigate based on role
     if (role == "admin") {
-      Navigator.pushReplacement(
-        context,
+      navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const admin.AdminPage()),
       );
     } else if (role == "bartender") {
-      Navigator.pushReplacement(
-        context,
+      navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const bar.BarHomePage()),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    userCtrl.dispose();
+    passCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -71,8 +91,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
-                  fontFamily: 'Roboto', // Change this to your desired font
-                  fontWeight: FontWeight.bold, // Optional: makes text bold
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 20),
@@ -98,12 +117,19 @@ class _LoginPageState extends State<LoginPage> {
               ElevatedButton(
                 onPressed: login,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                  backgroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
                 ),
                 child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Login"),
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        "Login",
+                        style: TextStyle(color: Colors.black),
+                      ),
               ),
             ],
           ),

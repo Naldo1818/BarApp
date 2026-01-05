@@ -69,6 +69,8 @@ class _ManageDrinksPageState extends State<ManageDrinksPage> {
 
             ElevatedButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+
                 final name = _nameController.text.trim();
                 final price =
                     double.tryParse(_priceController.text.trim()) ?? 0;
@@ -80,7 +82,7 @@ class _ManageDrinksPageState extends State<ManageDrinksPage> {
                     price <= 0 ||
                     quantity <= 0 ||
                     category.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text("Please fill all fields correctly"),
                     ),
@@ -95,6 +97,8 @@ class _ManageDrinksPageState extends State<ManageDrinksPage> {
                   category,
                 );
 
+                if (!mounted) return;
+
                 // Clear input fields
                 _nameController.clear();
                 _priceController.clear();
@@ -103,10 +107,13 @@ class _ManageDrinksPageState extends State<ManageDrinksPage> {
 
                 await loadStock();
 
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+
+                messenger.showSnackBar(
                   const SnackBar(content: Text("Drink added successfully!")),
                 );
               },
+
               style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
               child: const Text("Add Drink"),
             ),

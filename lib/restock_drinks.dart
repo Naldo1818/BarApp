@@ -19,18 +19,30 @@ class _RestockDrinksPageState extends State<RestockDrinksPage> {
   }
 
   Future<void> loadDrinks() async {
-    drinks = await StockDatabase.instance.fetchStock();
-    if (mounted) setState(() {});
+    final fetchedDrinks = await StockDatabase.instance.fetchStock();
+    if (mounted) {
+      setState(() {
+        drinks = fetchedDrinks;
+      });
+    }
   }
 
   Future<void> restock(String name) async {
     final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
-    if (qty <= 0) return;
+    if (qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter a valid quantity")),
+      );
+      return;
+    }
 
     await StockDatabase.instance.increaseStock(name, qty);
 
     qtyCtrl.clear();
-    await loadDrinks();
+    await loadDrinks(); // Refresh list
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("$name restocked by $qty")));
   }
 
   @override
@@ -49,6 +61,7 @@ class _RestockDrinksPageState extends State<RestockDrinksPage> {
             TextField(
               controller: qtyCtrl,
               keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.black),
               decoration: const InputDecoration(
                 labelText: "Restock Quantity",
                 filled: true,
@@ -56,24 +69,34 @@ class _RestockDrinksPageState extends State<RestockDrinksPage> {
               ),
             ),
             const SizedBox(height: 20),
-
             Expanded(
-              child: ListView(
-                children: drinks.map((d) {
-                  return Card(
-                    child: ListTile(
-                      title: Text("${d['name']} — Stock: ${d['quantity']}"),
-                      trailing: ElevatedButton(
-                        onPressed: () => restock(d['name']),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                        ),
-                        child: const Text("Restock"),
+              child: drinks.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No drinks found",
+                        style: TextStyle(color: Colors.white),
                       ),
+                    )
+                  : ListView(
+                      children: drinks.map((d) {
+                        return Card(
+                          color: Colors.grey.shade800,
+                          child: ListTile(
+                            title: Text(
+                              "${d['name']} — Stock: ${d['quantity']}",
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () => restock(d['name']),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                              ),
+                              child: const Text("Restock"),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
-              ),
             ),
           ],
         ),

@@ -59,10 +59,11 @@ class _BarHomePageState extends State<BarHomePage> {
     await loadStock();
     if (!mounted) return;
     setState(() {
-      if (cart.containsKey(name))
+      if (cart.containsKey(name)) {
         cart[name]!['quantity'] += 1;
-      else
+      } else {
         cart[name] = {'price': price, 'quantity': 1};
+      }
     });
   }
 
@@ -120,7 +121,9 @@ class _BarHomePageState extends State<BarHomePage> {
 
   Widget buildBody() {
     final categories = <String>{};
-    for (var item in stock) categories.add(item['category'] as String);
+    for (var item in stock) {
+      categories.add(item['category'] as String);
+    }
 
     return ListView(
       children: categories.map((cat) {
@@ -155,21 +158,29 @@ class _BarHomePageState extends State<BarHomePage> {
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () async {
-                  final result = await Navigator.push(
-                    context,
+                  final navigator = Navigator.of(context);
+
+                  final result = await navigator.push(
                     MaterialPageRoute(
                       builder: (_) => CheckoutPage(cart: Map.from(cart)),
                     ),
                   );
+
                   if (!mounted) return;
+
                   if (result == true) {
                     await StockDatabase.instance.recordSale(cart);
+
+                    if (!mounted) return;
+
                     setState(() => cart.clear());
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Order Confirmed!")),
                     );
                   }
                 },
+
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 child: const Text("Checkout"),
               ),
